@@ -1,23 +1,23 @@
 from pydantic import BaseModel
-from typing import List, Literal, Dict
+from typing import List, Dict
 
 class AgentStep(BaseModel):
     id: str
     name: str
-    status: Literal["idle", "active", "completed"]
+    status: str  # "idle" | "active" | "completed"
     subtext: str
 
 class SecurityInsight(BaseModel):
     id: str
     title: str
-    provider: Literal["AWS", "Azure", "GCP"]
-    severity: Literal["Critical", "High", "Medium", "Low"]
+    provider: str
+    severity: str
     detected_at: str
     recommendation: str
     remediation_cli: str
     resolved: bool = False
 
-class DashboardState(BaseModel):
+class DashboardData(BaseModel):
     system_online: bool
     last_scan: str
     posture_score: int
@@ -27,7 +27,7 @@ class DashboardState(BaseModel):
     resolved_today: int
     resolved_delta: str
     risk_distribution: Dict[str, int]
-    threat_trends_7d: List[Dict[str, str | int]]
+    threat_trends_7d: List[Dict[str, object]]
     provider_scores: Dict[str, int]
     key_metrics: Dict[str, str]
     agents: List[AgentStep]

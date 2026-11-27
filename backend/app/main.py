@@ -1,6 +1,9 @@
-from fastapi import FastAPI, HTTPException
+import asyncio
+import json
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.agents.pipeline import get_initial_dashboard_state
+from fastapi.responses import StreamingResponse
+from app.agents.pipeline import get_dashboard_state, apply_remediation
 
 app = FastAPI(title="CloudSentinel AI API")
 
@@ -12,28 +15,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory state for MVP (swap with SQLite/Postgres later)
-STATE = get_initial_dashboard_state()
-
 @app.get("/api/dashboard")
-def get_dashboard():
-    return STATE
+def read_dashboard():
+    return get_dashboard_state()
 
 @app.post("/api/remediate/{insight_id}")
-def approve_remediation(insight_id: str):
-    for item in STATE.insights:
-        if item.id == insight_id:
-            if item.resolved:
-                return {"status": "already_resolved", "state": STATE}
-            item.resolved = True
-            STATE.resolved_today += 1
-            if item.severity == "Critical" and STATE.critical_risks > 0:
-                STATE.critical_risks -= 1
-            STATE.posture_score = min(100, STATE.posture_score + 2)
-            # Mark all agents completed after human approval
-            for agent in STATE.agents:
-                agent.status = "completed"
-                if agent.id == "verify":
-                    agent.subtext = "Fix verified!"
-            return {"status": "remediated", "state": STATE}
-    raise HTTPException(status_code=404, detail="Insight not found")
+def remediate_issue(insight_id: str):
+    updated_state = apply_remediation(insight_id)
+    return {"status": "success", "state": updated_state}
+
+@app.get("/api/scan/stream")
+async def stream_scan():
+    async def event_generator():
+        stages = [
+            ("detection", "Scanning AWS, Azure & GCP assets..."),
+            ("analysis", "Scoring CVE & IAM blast radius..."),
+            ("explain", "Generating plain-English risk context..."),
+            ("remediate", "Synthesizing least-privilege CLI fixes..."),
+            ("verify", "Validating policy compliance & drift..."),
+        ]
+
+        # Reset all agents to idle at scan start
+        state = get_dashboard_state().model_dump()
+        for agent in state["agents"]:
+            agent["status"] = "idle"
+            agent["subtext"] = "Waiting..."
+        yield f"data: {json.dumps(state)}\n\n"
+        await asyncio.sleep(0.5)
+
+        # Progressively activate and complete each agent
+        for idx, (agent_id, active_msg) in enumerate(stages):
+            state["agents"][idx]["status"] = "active"
+            state["agents"][idx]["subtext"] = active_msg
+            yield f"data: {json.dumps(state)}\n\n"
+            await asyncio.sleep(1.1)
+
+            state["agents"][idx]["status"] = "completed"
+            state["agents"][idx]["subtext"] = "Completed"
+
+        state["last_scan"] = "Just now"
+        yield f"data: {json.dumps(state)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
