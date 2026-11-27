@@ -3,7 +3,7 @@ import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from app.agents.pipeline import get_dashboard_state, apply_remediation
+from app.agents.pipeline import get_dashboard_state, apply_remediation, record_completed_scan
 
 app = FastAPI(title="CloudSentinel AI API")
 
@@ -35,7 +35,6 @@ async def stream_scan():
             ("verify", "Validating policy compliance & drift..."),
         ]
 
-        # Reset all agents to idle at scan start
         state = get_dashboard_state().model_dump()
         for agent in state["agents"]:
             agent["status"] = "idle"
@@ -43,7 +42,6 @@ async def stream_scan():
         yield f"data: {json.dumps(state)}\n\n"
         await asyncio.sleep(0.5)
 
-        # Progressively activate and complete each agent
         for idx, (agent_id, active_msg) in enumerate(stages):
             state["agents"][idx]["status"] = "active"
             state["agents"][idx]["subtext"] = active_msg
@@ -53,7 +51,10 @@ async def stream_scan():
             state["agents"][idx]["status"] = "completed"
             state["agents"][idx]["subtext"] = "Completed"
 
-        state["last_scan"] = "Just now"
-        yield f"data: {json.dumps(state)}\n\n"
+        final_state = record_completed_scan().model_dump()
+        for agent in final_state["agents"]:
+            agent["status"] = "completed"
+            agent["subtext"] = "Completed"
+        yield f"data: {json.dumps(final_state)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
