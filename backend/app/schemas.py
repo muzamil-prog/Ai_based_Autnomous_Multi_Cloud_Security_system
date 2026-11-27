@@ -17,6 +17,23 @@ class SecurityInsight(BaseModel):
     remediation_cli: str
     resolved: bool = False
 
+class CloudAsset(BaseModel):
+    id: str
+    name: str
+    provider: str
+    service: str
+    region: str
+    risk_level: str
+    status: str
+
+class AuditReport(BaseModel):
+    id: str
+    timestamp: str
+    framework: str
+    score: str
+    findings_resolved: int
+    summary: str
+
 class DashboardData(BaseModel):
     system_online: bool
     last_scan: str
@@ -32,3 +49,5 @@ class DashboardData(BaseModel):
     key_metrics: Dict[str, str]
     agents: List[AgentStep]
     insights: List[SecurityInsight]
+    assets: List[CloudAsset]
+    reports: List[AuditReport]

@@ -1,4 +1,4 @@
-from app.schemas import DashboardData, AgentStep, SecurityInsight
+from app.schemas import DashboardData, AgentStep, SecurityInsight, CloudAsset, AuditReport
 
 _state = DashboardData(
     system_online=True,
@@ -65,6 +65,19 @@ _state = DashboardData(
             resolved=False,
         ),
     ],
+    assets=[
+        CloudAsset(id="ast-1", name="prod-sensitive-logs", provider="AWS", service="S3 Storage", region="us-east-1", risk_level="Critical", status="Exposed"),
+        CloudAsset(id="ast-2", name="core-eks-cluster-01", provider="AWS", service="Kubernetes (EKS)", region="us-west-2", risk_level="Low", status="Protected"),
+        CloudAsset(id="ast-3", name="dev-svc-principal", provider="Azure", service="Entra IAM", region="eastus", risk_level="Medium", status="Over-privileged"),
+        CloudAsset(id="ast-4", name="billing-sql-db", provider="Azure", service="Azure SQL", region="westeurope", risk_level="Low", status="Encrypted"),
+        CloudAsset(id="ast-5", name="ops-bot-service-acct", provider="GCP", service="Cloud IAM", region="global", risk_level="Low", status="Monitored"),
+        CloudAsset(id="ast-6", name="ml-training-vpc", provider="GCP", service="VPC Network", region="us-central1", risk_level="Low", status="Protected"),
+    ],
+    reports=[
+        AuditReport(id="rep-104", timestamp="Today, 11:15 PM", framework="SOC 2 Type II + CIS Multi-Cloud", score="96% Compliant", findings_resolved=24, summary="Automated S3 public-access block and IAM privilege pruning verified across 3 cloud accounts."),
+        AuditReport(id="rep-103", timestamp="Yesterday, 06:00 PM", framework="ISO 27001 Cloud Controls", score="93% Compliant", findings_resolved=18, summary="Zero unencrypted storage volumes detected; 2 stale service keys rotated."),
+        AuditReport(id="rep-102", timestamp="Nov 25, 02:30 PM", framework="NIST CSF 2.0", score="91% Compliant", findings_resolved=15, summary="Network ingress rules tightened on staging Kubernetes clusters."),
+    ],
 )
 
 def get_dashboard_state() -> DashboardData:
@@ -82,4 +95,10 @@ def apply_remediation(insight_id: str) -> DashboardData:
             _state.agents[3].subtext = "Action executed"
             _state.agents[4].status = "completed"
             _state.agents[4].subtext = "Fix verified!"
+            if insight_id == "inc-1":
+                _state.assets[0].risk_level = "Low"
+                _state.assets[0].status = "Protected"
+            elif insight_id == "inc-2":
+                _state.assets[2].risk_level = "Low"
+                _state.assets[2].status = "Protected"
     return _state
